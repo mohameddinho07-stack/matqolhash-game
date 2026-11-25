@@ -77,15 +77,19 @@ a.lnk{color:var(--mute);font-size:12.5px;text-align:center;text-decoration:under
 <div id="app"><div class="rays"></div><div class="dots"></div><div id="v"></div><div id="mus" class="mic" onclick="toggleMusic()"></div></div>
 <audio id="bgm" src="https://incompetech.com/music/royalty-free/mp3-royaltyfree/Monkeys%20Spinning%20Monkeys.mp3" loop preload="none"></audio>
 <script>
-(function(){var pend={},seq=0,realFetch=window.fetch.bind(window);
+(function(){var pend={},seq=0,realFetch=window.fetch.bind(window),queue=[],busy=null;
 function send(type,data){window.parent.postMessage(Object.assign({isStreamlitMessage:true,type:type},data||{}),'*')}
 window.addEventListener('message',function(e){var d=e.data;if(!d||d.type!=='streamlit:render')return;var r=d.args&&d.args.resp;if(r&&pend[r.id]){var p=pend[r.id];delete pend[r.id];p(r.json)}});
+function pump(){if(busy||!queue.length)return;var k=-1;for(var i=0;i<queue.length;i++){if(!queue[i].poll){k=i;break}}if(k<0)k=0;var job=queue.splice(k,1)[0];busy=job;
+ var done=false;function fin(ok,j){if(done)return;done=true;clearTimeout(job.t);delete pend[job.id];busy=null;job.waiters.forEach(function(w){ok?w.res({json:function(){return Promise.resolve(j)}}):w.rej(new Error('timeout'))});pump()}
+ job.t=setTimeout(function(){fin(false)},10000);pend[job.id]=function(j){fin(true,j)};
+ send('streamlit:setComponentValue',{value:{id:job.id,path:job.path,body:job.body},dataType:'json'})}
 window.fetch=function(u,o){u=String(u);if(u.indexOf('/api/')!==0)return realFetch(u,o);
- return new Promise(function(res,rej){var id=++seq+'-'+Math.random().toString(36).slice(2,8);var t=setTimeout(function(){delete pend[id];rej(new Error('timeout'))},15000);
-  pend[id]=function(j){clearTimeout(t);res({json:function(){return Promise.resolve(j)}})};
-  var path=u.split('?')[0],q={};(u.split('?')[1]||'').split('&').forEach(function(kv){if(!kv)return;var a=kv.split('=');q[a[0]]=decodeURIComponent(a[1]||'')});
-  var body=(o&&o.body)?JSON.parse(o.body):q;
-  send('streamlit:setComponentValue',{value:{id:id,path:path,body:body},dataType:'json'})})};
+ return new Promise(function(res,rej){var path=u.split('?')[0],q={};(u.split('?')[1]||'').split('&').forEach(function(kv){if(!kv)return;var a=kv.split('=');q[a[0]]=decodeURIComponent(a[1]||'')});
+  var body=(o&&o.body)?JSON.parse(o.body):q;var poll=path==='/api/state';
+  if(poll){for(var i=0;i<queue.length;i++){if(queue[i].poll){queue[i].waiters.push({res:res,rej:rej});return}}}
+  var id=++seq+'-'+Math.random().toString(36).slice(2,8);
+  queue.push({id:id,path:path,body:body,poll:poll,waiters:[{res:res,rej:rej}]});pump()})};
 send('streamlit:componentReady',{apiVersion:1});send('streamlit:setFrameHeight',{height:800});
 })();
 </script>
@@ -172,7 +176,7 @@ function roundV(){var r=S.round,me=S.me,left=r.end-(Date.now()/1000+offset);var 
  else{card='<div class="card" style="margin-top:12px;padding:24px 18px;text-align:center"><div style="font-weight:900;font-size:22px">'+gm(me,'مفيش حد تتصيده دلوقتي','مفيش حد تتصيديه دلوقتي')+'</div><div style="font-size:14px;color:#3C4478;margin-top:6px;line-height:1.7">'+gm(me,'استنى','استني')+' لحد ما الجولة تخلص.</div></div>'}
  var caught=r.caught?'<div style="margin-top:10px;background:rgba(255,92,77,.16);border:2px solid var(--coral);border-radius:16px;padding:10px 14px;font-weight:800;font-size:15px;text-align:center">'+gm(me,'انت وقعت. كمّل وقّع غيرك.','إنتي وقعتي. كمّلي وقّعي غيرك.')+' نقطة النجاة راحت.</div>':'';
  return '<div class="scr"><div class="row" style="justify-content:space-between"><div class="pill">الجولة '+numAr(S.round_no)+' من '+numAr(S.rounds)+'</div><div class="timer" id="tm">'+fmt(left)+'</div></div>'+
- '<div style="margin-top:14px;text-align:center;font-weight:700;font-size:15px;color:var(--mute)">مهمتك السرية. محدش يشوف تليفونك.</div>'+card+caught+
+ (S.undo&&S.undo.left>0?'<div style="margin-top:10px">'+undoBtn()+'</div>':'<div style="margin-top:14px;text-align:center;font-weight:700;font-size:15px;color:var(--mute)">مهمتك السرية. محدش يشوف تليفونك.</div>')+card+caught+
  '<div class="sp" style="min-height:14px"></div><div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="pill">لسه واقفين: '+numAr(r.uncaught)+' من '+numAr(r.total)+'</span><span class="pill">نقطك: '+numAr(r.my.hit+r.my.survive)+'</span></div><div class="err">'+esc(ui.err)+'</div>'+
  '<div class="btn'+(t?'':'" disabled="1')+'" onclick="claimTap()" style="height:72px;font-size:26px">'+(ui.pend?'⏳ ثانية...':'قالها!')+'</div><div class="sub" style="text-align:center;font-size:13px;margin-top:8px">دوسها لما '+(t?esc(t.name):'ضحيتك')+' '+gm(t,'يقولها','تقولها')+' بنفسه.</div></div>'}
 function summaryV(final){var sm=S.summary,me=S.me;
@@ -193,7 +197,8 @@ function overlay(){var n=ui.over;if(!n)return '';var me=S&&S.me;
  return '<div class="over"><div><div class="rays"></div><div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:100%"><div style="width:104px;height:104px;transform:rotate(-5deg)">'+av(me.avatar,'w')+'</div><div class="hl" style="font-size:'+(n.head.length>16?32:42)+'px">'+esc(n.head)+'</div><div class="card" style="margin-top:16px;padding:16px 20px;text-align:center;width:100%">'+lineParts(n)+'</div><div style="margin-top:14px;font-size:16px;line-height:1.7;text-align:center;font-weight:600">حد استدرجك للكلمة دي.<br><span style="color:var(--yel);font-weight:800">هتعرف مين في الكشف… '+gm(me,'لو لسه فاكر.','لو لسه فاكرة.')+'</span></div><div class="btn stick" style="margin-top:16px" onclick="ui.over=null;render()">'+gm(me,'كمّل كلام','كمّلي كلام')+'</div></div></div></div>'}
 function claimModal(){if(!ui.claim||!S||!S.round||!S.round.target)return '';var t=S.round.target;
  return '<div class="modal"><div><div style="font-weight:900;font-size:22px;text-align:center">متأكد إن '+esc(t.name)+' قالها؟</div><div class="sub" style="text-align:center;font-size:13px">اللعبة مش بتسمع. الضغطة دي بتوقّعه فورًا.</div><div class="btn coral" onclick="act(\'/api/claim\')">أيوه، قالها!</div><div class="btn ghost" onclick="ui.claim=false;render()">لأ، لسه</div></div></div>'}
-function undoBar(){var u=S&&S.undo;if(!u||u.left<=0)return '';return '<div style="position:fixed;left:0;right:0;top:114px;z-index:60;display:flex;justify-content:center;padding:0 16px"><div class="btn coral" onclick="undoTap()" style="height:52px;font-size:19px;max-width:420px">'+(ui.pend?'⏳ ثانية...':'↩ غلطة؟ ارجع فيها')+'</div></div>'}
+function undoBtn(){return '<div class="btn coral" onclick="undoTap()" style="height:46px;font-size:18px">'+(ui.pend?'⏳ ثانية...':'↩ غلطة؟ ارجع فيها')+'</div><div class="sub" style="text-align:center;font-size:12px;margin:4px 0 2px">بتتلغي لحد ما حد تاني يقول «قالها» أو الوقت يخلص.</div>'}
+function undoBar(){var u=S&&S.undo;if(!u||u.left<=0||S.phase==='round')return '';return '<div style="position:fixed;left:0;right:0;bottom:calc(10px + env(safe-area-inset-bottom));z-index:60;display:flex;justify-content:center;padding:0 16px"><div style="width:100%;max-width:420px">'+undoBtn()+'</div></div>'}
 function toasts(){return ui.toasts.map(function(n){var c=n.shown?' still':'';n.shown=true;return '<div class="toast '+n.kind+c+'">'+esc(n.text)+'</div>'}).join('')}
 function render(){if(!ART)return;var v;
  if(session&&S){
