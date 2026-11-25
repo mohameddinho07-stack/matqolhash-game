@@ -15,7 +15,7 @@ ERR = {
     "host_only": "ده للمضيف بس.", "phase": "مش وقت الحركة دي.",
     "min_players": "لازم لاعبين اتنين على الأقل.", "len": "مدة مش مظبوطة.",
     "not_in_round": "الجولة خلصت.", "no_target": "مفيش حد تتصيده دلوقتي.",
-    "unknown_player": "الأوضة دي مش بتاعتك. ادخل تاني بالكود.", "no_code": "جرّب تاني بعد شوية.", "slow_down": "محاولات كتير غلط. استنى شوية وجرّب تاني.",
+    "unknown_player": "الأوضة دي مش بتاعتك. ادخل تاني بالكود.", "closed": "المضيف قفل الأوضة.", "no_code": "جرّب تاني بعد شوية.", "slow_down": "محاولات كتير غلط. استنى شوية وجرّب تاني.",
 }
 
 st.set_page_config(page_title="ماتقولهاش", layout="centered", initial_sidebar_state="collapsed")
@@ -42,6 +42,20 @@ def shared():
     _load_private()
     return {"hub": Hub(), "lock": threading.Lock()}
 
+def _migrate(S):
+    """Code updates keep live rooms: re-point existing room objects at the current Room class and fill new fields."""
+    import engine as _E
+    hub = S["hub"]
+    if hub.__class__ is not _E.Hub:
+        hub.__class__ = _E.Hub
+    for _r in list(hub.rooms.values()):
+        if _r.__class__ is not _E.Room:
+            _r.__class__ = _E.Room
+        if not hasattr(_r, "gone"):
+            _r.gone = {}
+        if not hasattr(_r, "closed"):
+            _r.closed = False
+
 def _clean(b):
     out = {}
     if not isinstance(b, dict):
@@ -64,8 +78,8 @@ def handle(req, who="-"):
 def _handle(req, who="-"):
     if not isinstance(req, dict) or not isinstance(req.get("path"), str):
         return {"ok": False, "error": "bad", "msg": "حصلت مشكلة."}
-    S = shared(); path = req["path"]; b = _clean(req.get("body"))
-    if path not in ("/api/state", "/api/create", "/api/join", "/api/start", "/api/next", "/api/claim", "/api/newleague", "/api/refill"):
+    S = shared(); _migrate(S); path = req["path"]; b = _clean(req.get("body"))
+    if path not in ("/api/state", "/api/create", "/api/join", "/api/start", "/api/next", "/api/claim", "/api/newleague", "/api/refill", "/api/leave", "/api/close"):
         return {"ok": False, "error": "bad", "msg": "حصلت مشكلة."}
     try:
         with S["lock"]:
@@ -79,9 +93,14 @@ def _handle(req, who="-"):
                 pid = r.add_player(b.get("name"), b.get("gender"), b.get("avatar")); return {"ok": True, "room": r.code, "pid": pid}
             pid = b.get("pid")
             if pid not in r.players: raise GameError("unknown_player")
+            if path == "/api/leave":
+                left = r.leave(pid)
+                if not left:
+                    S["hub"].rooms.pop(r.code, None)
+                return {"ok": True}
             {"/api/start": lambda: r.start_league(pid, b.get("minutes")), "/api/next": lambda: r.next_round(pid),
              "/api/claim": lambda: r.claim(pid), "/api/newleague": lambda: r.new_league(pid),
-             "/api/refill": lambda: r.refill_bank(pid)}[path]()
+             "/api/refill": lambda: r.refill_bank(pid), "/api/close": lambda: r.close(pid)}[path]()
             return {"ok": True}
     except GameError as e:
         return {"ok": False, "error": str(e), "msg": ERR.get(str(e), "حصلت مشكلة.")}
