@@ -99,8 +99,10 @@ def _handle(req, who="-"):
         return {"ok": False, "error": "bad", "msg": "حصلت مشكلة."}
     try:
         with S["lock"]:
+            _st = S["hub"].__dict__.setdefault("stats", {})
+            _st[path] = _st.get(path, 0) + 1
             if path == "/api/health":
-                return {"ok": True, "pools": {"private": bool(getattr(C, "PRIVATE", False)), "bank": len(W.BANK), "victim_m": len(C.VICTIM_M), "victim_f": len(C.VICTIM_F), "err": PRIV_ERR["e"]}}
+                return {"ok": True, "pools": {"private": bool(getattr(C, "PRIVATE", False)), "bank": len(W.BANK), "victim_m": len(C.VICTIM_M), "victim_f": len(C.VICTIM_F), "err": PRIV_ERR["e"]}, "calls": dict(_st)}
             if path == "/api/state":
                 return {"ok": True, "state": S["hub"].get(b.get("room"), who).view(b.get("pid"))}
             if path == "/api/create":
