@@ -9,7 +9,7 @@
 :root{--navy:#141A3F;--navy2:#0B0F2E;--blue:#5B6CFF;--cream:#FFF4DC;--yel:#FFC73A;--yeld:#C98A00;--coral:#FF5C4D;--mute:#9AA3D6;--terra:#D9623B;--turq:#1FB5A8}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--navy2);color:var(--cream);font-family:'Noto Kufi Arabic','Noto Kufi Arabic','Noto Sans Arabic',sans-serif;direction:rtl}
-#app{position:relative;max-width:440px;margin:0 auto;min-height:100dvh;overflow:hidden;
+#app{position:relative;max-width:440px;margin:0 auto;min-height:100dvh;overflow:hidden;overflow:clip;
  background:radial-gradient(120% 70% at 50% 0%,#2B3590 0%,var(--navy) 48%,var(--navy2) 100%)}
 .rays{position:absolute;left:50%;top:-120px;width:900px;height:900px;margin-left:-450px;opacity:.16;pointer-events:none;
  background:repeating-conic-gradient(from 0deg,var(--yel) 0 7deg,transparent 7deg 20deg);
@@ -132,7 +132,7 @@ function formV(){var f=ui.form,join=f.mode==='join';
  '<div class="seg" style="margin-top:14px"><div class="'+(f.gender==='m'?'on':'')+'" onclick="ui.form.gender=\'m\';render()">واد</div><div class="'+(f.gender==='f'?'on':'')+'" onclick="ui.form.gender=\'f\';render()">بت</div></div>'+
  '<div class="sub" style="font-size:13px;margin-top:4px">عشان اللعبة تكلمك صح.</div>'+
  '<div class="title" style="margin-top:14px;font-size:22px">اختار شخصيتك</div><div class="grid" style="margin-top:10px">'+avs+'</div>'+
- '<div class="sp"></div><div class="err">'+esc(ui.err)+'</div><div class="btn" onclick="submitForm()">'+(join?'ادخل الأوضة':'افتح الأوضة')+'</div></div>'}
+ '<div class="sp"></div><div style="position:sticky;bottom:0;z-index:6;margin:0 -20px -76px;padding:26px 20px 64px;background:linear-gradient(rgba(11,15,46,0),var(--navy2) 30%)"><div class="err">'+esc(ui.err)+'</div><div class="btn" onclick="submitForm()">'+(join?'ادخل الأوضة':'افتح الأوضة')+'</div></div></div>'}
 function submitForm(){var f=ui.form;if(!f.name.trim()){ui.err='اكتب اسمك الأول.';return render()}if(!f.gender){ui.err='اختار واد ولا بت.';return render()}
  var body={name:f.name,gender:f.gender,avatar:f.avatar||Object.keys(ART.avatars)[Math.floor(Math.random()*12)]};
  if(f.mode==='join'){body.room=f.code.trim().toUpperCase();if(body.room.length!==6){ui.err='الكود ست حروف.';return render()}}
