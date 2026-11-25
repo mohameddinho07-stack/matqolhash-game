@@ -40,9 +40,13 @@ class Room:
         self.round = None
         self.last_summary = None
         self.refilled = 0
+        self.gone = {}              # pid -> player dict, for players who left (history stays readable)
+        self.closed = False
 
     # ---------------- players
     def add_player(self, name, gender, avatar):
+        if getattr(self, "closed", False):
+            raise GameError("closed")
         if self.phase != "lobby":
             raise GameError("locked")
         name = (name or "").strip()[:14]
@@ -94,7 +98,40 @@ class Room:
             raise GameError("host_only")
         if self.phase != "between":
             raise GameError("phase")
+        if len(self.order) < MIN_PLAYERS:
+            raise GameError("min_players")
         self._begin_round()
+
+    def _pl(self, p):
+        return self.players.get(p) or self.gone.get(p) or {"name": "؟", "avatar": AVATARS[0], "gender": "m"}
+
+    def leave(self, pid):
+        """A player leaves for real: removed from the roster, targets reassigned, host handed over."""
+        if pid not in self.players or pid not in self.order:
+            raise GameError("unknown_player")
+        r = self.round
+        self.gone[pid] = self.players.pop(pid)
+        self.order.remove(pid)
+        if self.host == pid:
+            self.host = self.order[0] if self.order else None
+        if self.phase == "round" and r and not r["ended"]:
+            r["targets"].pop(pid, None)
+            for s in self.order:
+                t = r["targets"].get(s)
+                if t == pid or t is None or t in r["caught"]:
+                    r["targets"][s] = self._pick_target(s, avoid=pid)
+            if len(self.order) < MIN_PLAYERS:
+                self._end_round(time.time())
+            else:
+                self.tick(time.time())
+        self.touched = time.time()
+        return len(self.order)
+
+    def close(self, by):
+        if by != self.host:
+            raise GameError("host_only")
+        self.closed = True
+        self.touched = time.time()
 
     def refill_bank(self, by):
         """Explicit host action after exhaustion: words come back (and may repeat)."""
@@ -232,6 +269,8 @@ class Room:
 
     def view(self, pid, now=None):
         now = now or time.time()
+        if getattr(self, "closed", False):
+            raise GameError("closed")
         self.tick(now)
         if pid not in self.players:
             raise GameError("unknown_player")
@@ -259,11 +298,11 @@ class Room:
             }
         if self.phase in ("between", "league_over") and self.last_summary:
             s = self.last_summary
-            nm = lambda p: self.players[p]["name"]
+            nm = lambda p: self._pl(p)["name"]
             v["summary"] = {
                 "round": s["round"], "zero": s["zero"], "zero_text": s["zero_text"],
-                "hits": [{"t": h["t"], "victim": nm(h["victim"]), "victim_avatar": self.players[h["victim"]]["avatar"],
-                          "steerers": [{"name": nm(x), "avatar": self.players[x]["avatar"]} for x in h["steerers"]],
+                "hits": [{"t": h["t"], "victim": nm(h["victim"]), "victim_avatar": self._pl(h["victim"])["avatar"],
+                          "steerers": [{"name": nm(x), "avatar": self._pl(x)["avatar"]} for x in h["steerers"]],
                           "word": h["word"]} for h in s["hits"]],
                 "survivors": [nm(p) for p in s["survivors"]],
                 "you_survived": pid in s["survivors"],
