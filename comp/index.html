@@ -100,9 +100,11 @@ function av(k,mood){var a=ART.avatars[k];return a?(mood==='w'?a.w:a.n):''}
 function gm(x,m,f){return x&&x.gender==='f'?f:m}
 function numAr(n){return String(n)}
 function post(path,body,cb){fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json()}).then(cb).catch(function(){ui.err='النت قاطع. جرّب تاني.';render()})}
-function poll(){if(!session){return}
+var actAt=0;
+function poll(){if(!session){return}var t0=Date.now();
  fetch('/api/state?room='+encodeURIComponent(session.room)+'&pid='+encodeURIComponent(session.pid)).then(function(r){return r.json()}).then(function(j){if(!session)return;
   if(!j.ok){ if(j.error==='no_room'||j.error==='unknown_player'||j.error==='closed'){clearSession(ui.leaving?'':j.msg);return} }
+  else if(t0<actAt){}
   else{var ns=j.state;offset=ns.now-Date.now()/1000;var sig=JSON.stringify(ns,function(k,v){return k==='now'?undefined:v});var ch=sig!==lastSig||!S;lastSig=sig;S=ns;var nb=handleNotes();if(ch||nb)render()}
   setTimeout(poll,1000)}).catch(function(){setTimeout(poll,2000)})}
 function handleNotes(){var mx=seenId,nb=false;(S.notes||[]).forEach(function(n){if(n.id>seenId){nb=true;
@@ -154,7 +156,7 @@ function submitForm(){var f=ui.form;if(!f.name.trim()){ui.err='اكتب اسمك
  startMusic();
  post(f.mode==='join'?'/api/join':'/api/create',body,function(j){if(!j.ok){ui.err=j.msg||'حصلت مشكلة.';return render()}
   session={room:j.room,pid:j.pid};localStorage.setItem('mq_s',JSON.stringify(session));seenId=0;ui.screen=null;ui.err='';poll()})}
-function act(path,extra){var b={room:session.room,pid:session.pid};for(var k in (extra||{}))b[k]=extra[k];post(path,b,function(j){if(!j.ok){ui.err=j.msg;}else{ui.err=''}ui.claim=false;pollNow()})}
+function act(path,extra){var b={room:session.room,pid:session.pid};for(var k in (extra||{}))b[k]=extra[k];post(path,b,function(j){if(!j.ok){ui.err=j.msg;}else{ui.err=''}ui.claim=false;if(j.ok&&j.state){S=j.state;offset=S.now-Date.now()/1000;lastSig=JSON.stringify(S,function(k,v){return k==='now'?undefined:v});actAt=Date.now();handleNotes();render()}else{pollNow()}})}
 function pollNow(){if(!session)return;fetch('/api/state?room='+session.room+'&pid='+session.pid).then(function(r){return r.json()}).then(function(j){if(j.ok){S=j.state;offset=S.now-Date.now()/1000;handleNotes()}render()})}
 function lobby(){var me=S.me,ps=S.players.map(function(p){return '<div class="card prow"><div>'+av(p.avatar)+'</div><div style="font-weight:900;font-size:19px;flex:1">'+esc(p.name)+'</div>'+(p.host?'<span class="tag">المضيف</span>':'')+(p.pid===me.pid?'<span class="tag me">إنت</span>':'')+'</div>'}).join('');
  var can=S.players.length>=S.min_players;
