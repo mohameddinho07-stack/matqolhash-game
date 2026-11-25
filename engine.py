@@ -14,6 +14,14 @@ AVATARS = ["fahlawy", "osta", "tuktuk", "captain", "haag", "foul",
 ROOM_TTL = 6 * 3600
 
 
+_DIG = {ord(a): str(i) for i, a in enumerate("٠١٢٣٤٥٦٧٨٩")}
+_DIG.update({ord(a): str(i) for i, a in enumerate("۰۱۲۳۴۵۶۷۸۹")})
+
+def norm_code(code):
+    c = str(code or "").translate(_DIG).upper()
+    return "".join(ch for ch in c if ch.isascii() and ch.isalnum())
+
+
 class GameError(Exception):
     pass
 
@@ -335,16 +343,16 @@ class Hub:
         self._gc(now)
         if len(self.rooms) >= 400:
             raise GameError("no_code")
-        letters = "ABCDEFGHJKMNPQRSTUVWXYZ"
+        rng = random.SystemRandom()
         for _ in range(200):
-            code = "".join(random.choice(letters) for _ in range(6))
+            code = "".join(rng.choice("0123456789") for _ in range(6))
             if code not in self.rooms:
                 self.rooms[code] = Room(code, now)
                 return self.rooms[code]
         raise GameError("no_code")
 
     FAIL_SESSION = 8     # failed room lookups per session per minute
-    FAIL_GLOBAL = 120    # failed room lookups across everyone per minute
+    FAIL_GLOBAL = 60    # failed room lookups across everyone per minute
 
     def _throttle(self, who):
         now = time.time()
@@ -353,7 +361,7 @@ class Hub:
             raise GameError("slow_down")
 
     def get(self, code, who="-"):
-        r = self.rooms.get((code or "").strip().upper())
+        r = self.rooms.get(norm_code(code))
         if not r:
             self._throttle(who)
             self._fails.append((time.time(), who))
