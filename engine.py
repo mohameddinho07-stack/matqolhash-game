@@ -203,7 +203,7 @@ class Room:
         r["hits"].append({"t": now - r["start"], "victim": v, "steerers": steerers, "word": word, "claimer": pid})
         self._note(v, "caught", head=head, line=line.format(w=word), word=word)
         for s in steerers:
-            self._note(s, "congrats", text=random.choice(C.CONGRATS).format(v=vp["name"]))
+            self._note(s, "congrats", text=random.choice(C.CONGRATS_F if vp["gender"] == "f" else C.CONGRATS).format(v=vp["name"]))
         involved = set(steerers) | {v}
         if not r["first_hit_sent"]:
             r["first_hit_sent"] = True
