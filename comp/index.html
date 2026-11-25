@@ -107,7 +107,7 @@ function handleNotes(){var mx=seenId,nb=false;(S.notes||[]).forEach(function(n){
  if(mx>seenId){seenId=mx;localStorage.setItem('mq_seen_'+session.room+'_'+session.pid,mx)}return nb}
 function fmt(sec){sec=Math.max(0,Math.ceil(sec));var m=Math.floor(sec/60),s=sec%60;return m+':'+(s<10?'0':'')+s}
 function startMusic(){var a=$('bgm');if(musicOn){a.volume=.35;var p=a.play();if(p&&p.catch)p.catch(function(){})}}
-function toggleMusic(){musicOn=!musicOn;localStorage.setItem('mq_music',musicOn?'1':'0');var a=$('bgm');if(musicOn)startMusic();else a.pause();micIcon()}
+function toggleMusic(){var b0=$('bgm');if(musicOn&&b0.paused){startMusic();micIcon();return}musicOn=!musicOn;localStorage.setItem('mq_music',musicOn?'1':'0');var a=$('bgm');if(musicOn)startMusic();else a.pause();micIcon()}
 function micIcon(){$('mus').innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFF4DC" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/>'+(musicOn?'<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>':'<path d="M17 9l5 6M22 9l-5 6"/>')+'</svg>'}
 function crowd(){return ['baladi','fahlawy','hijabi','osta','dalouaa','tuktuk'].map(function(k,j){return '<div style="width:64px;height:64px;margin-inline-start:-14px;transform:translateY('+(j%2?-8:6)+'px) rotate('+(j%2?-5:4)+'deg)">'+av(k)+'</div>'}).join('')}
 function home(){return '<div class="scr"><div style="display:flex;flex-direction:column;align-items:center;margin-top:44px"><div style="transform:rotate(-4deg);width:130px">'+ART.logo.replace(/width="160" height="150"/,'width="130" height="122"')+'</div><div class="sign" style="margin-top:24px"><div class="b"><div class="i">ماتقولهاش</div></div></div>'+
