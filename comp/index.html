@@ -36,13 +36,14 @@ input.t::placeholder{color:#8a8fb5;font-weight:700}
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 6px;justify-items:center}
 .av{cursor:pointer;border-radius:50%;padding:3px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:700;text-align:center}
 .av.on{box-shadow:0 0 0 4px var(--yel)}
-.av svg{width:62px;height:62px;display:block}
+.av svg{width:56px;height:56px;display:block}
 svg[viewBox='0 0 100 100']{width:100%;height:100%;display:block}
 .sign{position:relative;transform:rotate(-2deg)}
 .sign .b{background:var(--yel);border:5px solid var(--navy);border-radius:18px;padding:10px 16px 12px;box-shadow:0 7px 0 var(--terra),0 7px 0 4px var(--navy)}
 .sign .i{border:3px dashed var(--navy);border-radius:10px;padding:2px 14px;font-weight:900;font-size:40px;line-height:1.25;color:var(--navy);text-shadow:3px 3px 0 var(--terra);text-align:center}
 .sign:before,.sign:after{content:"";position:absolute;top:-26px;height:30px;border-left:3px solid var(--cream);opacity:.7}
 .sign:before{left:34px}.sign:after{right:34px}
+.codeline{margin-top:8px;direction:ltr;text-align:center;font-family:monospace,sans-serif;font-weight:900;font-size:44px;letter-spacing:10px;padding:10px 0 10px 10px;border-radius:16px;background:var(--cream);color:var(--navy);border:3px solid var(--navy);box-shadow:0 5px 0 rgba(0,0,0,.35);-webkit-user-select:all;user-select:all}
 .codebox{display:flex;gap:7px;justify-content:center;direction:ltr}
 .codebox div{width:46px;height:62px;border-radius:14px;background:var(--cream);color:var(--navy);border:3px solid var(--navy);font-weight:900;font-size:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 0 rgba(0,0,0,.35)}
 .prow{display:flex;align-items:center;gap:12px;padding:8px 12px;margin-top:10px}
@@ -123,19 +124,23 @@ function how(){var st=function(n,h,b){return '<div class="card" style="padding:1
  st('٤','النقط','نقطة عن كل توقيعة، ونقطة نجاة لو خلصت الجولة من غير ما تقع. الأزرار هي اللي بتسجّل. اللعبة مش بتسمع الكول.')+
  '<div class="sp"></div><div class="btn" style="margin-top:18px" onclick="ui.screen=null;render()">تمام، فهمت</div></div>'}
 function credits(){return '<div class="scr"><div class="title">الموسيقى</div><div class="card" style="padding:16px 18px;margin-top:14px;line-height:1.9;font-size:15px;direction:ltr;text-align:left;font-family:sans-serif">“Monkeys Spinning Monkeys” Kevin MacLeod (incompetech.com)<br>Licensed under Creative Commons: By Attribution 4.0<br><a href="https://creativecommons.org/licenses/by/4.0/" style="color:#3C4478">creativecommons.org/licenses/by/4.0</a><br>Looped for continuous play (modified).</div><div class="sp"></div><div class="btn" style="margin-top:18px" onclick="ui.screen=null;render()">رجوع</div></div>'}
+function copyCode(){var c=S&&S.code;if(!c)return;var done=function(ok){var b=$('copybtn');if(b){b.textContent=ok?'اتنسخ ✓':'دوس طويل على الكود وانسخه';setTimeout(function(){var b2=$('copybtn');if(b2)b2.textContent='انسخ الكود'},2500)}};
+ var fb=function(){try{var t=document.createElement('textarea');t.value=c;t.setAttribute('readonly','');t.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(t);t.focus();t.select();t.setSelectionRange(0,99);var ok=document.execCommand('copy');document.body.removeChild(t);done(ok)}catch(e){done(false)}};
+ try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(c).then(function(){done(true)},fb)}else fb()}catch(e){fb()}}
+function normCode(v){return String(v||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,6)}
 function goForm(mode){ui.form={mode:mode,name:'',gender:null,avatar:null,code:''};ui.err='';ui.screen='form';render()}
 function formV(){var f=ui.form,join=f.mode==='join';
- var avs=Object.keys(ART.avatars).map(function(k){return '<div class="av'+(f.avatar===k?' on':'')+'" onclick="ui.form.avatar=\''+k+'\';render()">'+av(k)+'<span>'+esc(ART.avatars[k].name)+'</span></div>'}).join('');
+ var ORD=['fahlawy','baladi','osta','dalouaa','tuktuk','hijabi','captain','kaptna','haag','hagga','foul','dahiha'];var avs=ORD.filter(function(k){return ART.avatars[k]}).concat(Object.keys(ART.avatars).filter(function(k){return ORD.indexOf(k)<0})).map(function(k){return '<div class="av'+(f.avatar===k?' on':'')+'" onclick="ui.form.avatar=\''+k+'\';render()">'+av(k)+'<span>'+esc(ART.avatars[k].name)+'</span></div>'}).join('');
  return '<div class="scr"><div class="row"><div class="pill" onclick="ui.screen=null;render()" style="cursor:pointer">رجوع</div></div>'+
- (join?'<div class="title" style="margin-top:14px">كود الأوضة</div><input class="t" id="fcode" maxlength="6" placeholder="ABCDEF" style="direction:ltr;text-align:center;letter-spacing:8px;margin-top:8px;text-transform:uppercase" value="'+esc(f.code)+'" oninput="ui.form.code=this.value">':'')+
+ (join?'<div class="title" style="margin-top:14px">كود الأوضة</div><input class="t" id="fcode" placeholder="ABCDEF" style="direction:ltr;text-align:center;letter-spacing:8px;margin-top:8px;text-transform:uppercase" value="'+esc(f.code)+'" oninput="var v=normCode(this.value);this.value=v;ui.form.code=v">':'')+
  '<div class="title" style="margin-top:16px">اسمك إيه؟</div><input class="t" id="fname" maxlength="14" placeholder="اكتب اسمك" style="margin-top:8px" value="'+esc(f.name)+'" oninput="ui.form.name=this.value">'+
  '<div class="seg" style="margin-top:14px"><div class="'+(f.gender==='m'?'on':'')+'" onclick="ui.form.gender=\'m\';render()">واد</div><div class="'+(f.gender==='f'?'on':'')+'" onclick="ui.form.gender=\'f\';render()">بت</div></div>'+
  '<div class="sub" style="font-size:13px;margin-top:4px">عشان اللعبة تكلمك صح.</div>'+
- '<div class="title" style="margin-top:14px;font-size:22px">اختار شخصيتك</div><div class="grid" style="margin-top:10px">'+avs+'</div>'+
+ '<div class="title" style="margin-top:14px;font-size:22px">اختار شخصيتك (ولاد وبنات)</div><div class="grid" style="margin-top:10px">'+avs+'</div>'+
  '<div class="sp"></div><div style="position:sticky;bottom:0;z-index:6;margin:0 -20px -76px;padding:26px 20px 64px;background:linear-gradient(rgba(11,15,46,0),var(--navy2) 30%)"><div class="err">'+esc(ui.err)+'</div><div class="btn" onclick="submitForm()">'+(join?'ادخل الأوضة':'افتح الأوضة')+'</div></div></div>'}
 function submitForm(){var f=ui.form;if(!f.name.trim()){ui.err='اكتب اسمك الأول.';return render()}if(!f.gender){ui.err='اختار واد ولا بت.';return render()}
  var body={name:f.name,gender:f.gender,avatar:f.avatar||Object.keys(ART.avatars)[Math.floor(Math.random()*12)]};
- if(f.mode==='join'){body.room=f.code.trim().toUpperCase();if(body.room.length!==6){ui.err='الكود ست حروف.';return render()}}
+ if(f.mode==='join'){body.room=normCode(f.code);if(body.room.length!==6){ui.err='الكود ست حروف.';return render()}}
  startMusic();
  post(f.mode==='join'?'/api/join':'/api/create',body,function(j){if(!j.ok){ui.err=j.msg||'حصلت مشكلة.';return render()}
   session={room:j.room,pid:j.pid};localStorage.setItem('mq_s',JSON.stringify(session));seenId=0;ui.screen=null;ui.err='';poll()})}
@@ -145,7 +150,7 @@ function lobby(){var me=S.me,ps=S.players.map(function(p){return '<div class="ca
  var can=S.players.length>=S.min_players;
  var lens=S.len_options.map(function(m){return '<div class="'+(ui.len===m||(!ui.len&&m===S.round_len)?'on':'')+'" onclick="ui.len='+m+';render()">'+numAr(m)+' د</div>'}).join('');
  var host=me.host?'<div class="sub" style="margin-top:14px;font-weight:800;color:var(--cream)">وقت الجولة</div><div class="seg" style="margin-top:6px">'+lens+'</div><div class="err">'+esc(ui.err)+'</div><div class="btn'+(can?'':'" disabled="1')+'" style="margin-top:6px" onclick="act(\'/api/start\',{minutes:ui.len||'+S.round_len+'})">ابدأ اللعب</div>'+(can?'':'<div class="sub" style="text-align:center;font-size:13px;margin-top:6px">لازم لاعبين اتنين على الأقل.</div>'):'<div class="sub" style="text-align:center;margin-top:16px">مستنيين المضيف يبدأ…</div>';
- return '<div class="scr"><div class="sub" style="text-align:center;font-weight:700;color:var(--cream)">كود الأوضة</div><div class="codebox" style="margin-top:8px">'+S.code.split('').map(function(c){return '<div>'+c+'</div>'}).join('')+'</div><div class="sub" style="margin-top:10px;text-align:center;font-size:14px">ابعتوا الكود للشلة وادخلوا من تليفوناتكم</div>'+
+ return '<div class="scr"><div class="sub" style="text-align:center;font-weight:700;color:var(--cream)">كود الأوضة</div><div class="codeline" id="codetxt">'+esc(S.code)+'</div><div class="btn ghost" id="copybtn" style="margin-top:10px;min-height:48px;font-size:18px" onclick="copyCode()">انسخ الكود</div><div class="sub" style="margin-top:10px;text-align:center;font-size:14px">ابعتوا الكود للشلة وادخلوا من تليفوناتكم</div>'+
  '<div class="title" style="margin-top:18px;font-size:22px">اللي دخلوا ('+numAr(S.players.length)+')</div>'+ps+'<div class="sp" style="min-height:14px"></div>'+host+'<div class="sub" style="font-size:12.5px;text-align:center;margin-top:10px">أول ما نبدأ الأوضة بتتقفل.</div></div>'}
 function roundV(){var r=S.round,me=S.me,left=r.end-(Date.now()/1000+offset);var t=r.target;
  var card;
