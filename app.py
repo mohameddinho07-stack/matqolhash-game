@@ -121,7 +121,11 @@ def _handle(req, who="-"):
             {"/api/start": lambda: r.start_league(pid, b.get("minutes")), "/api/next": lambda: r.next_round(pid),
              "/api/claim": lambda: r.claim(pid), "/api/newleague": lambda: r.new_league(pid),
              "/api/refill": lambda: r.refill_bank(pid), "/api/close": lambda: r.close(pid)}[path]()
-            return {"ok": True}
+            out = {"ok": True}
+            if path in ("/api/start", "/api/next", "/api/claim", "/api/newleague", "/api/refill"):
+                try: out["state"] = r.view(pid)
+                except Exception: pass
+            return out
     except GameError as e:
         return {"ok": False, "error": str(e), "msg": ERR.get(str(e), "حصلت مشكلة.")}
 
