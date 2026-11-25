@@ -67,8 +67,11 @@ svg[viewBox='0 0 100 100']{width:100%;height:100%;display:block}
 .err{color:#FFB3AB;font-weight:800;font-size:15px;min-height:22px;text-align:center}
 .hit{padding:10px 12px;display:flex;align-items:center;gap:8px;margin-top:10px}
 .hit>div:not(.stack):not([style]){width:40px;height:40px;flex:0 0 auto}.hit .stack{display:flex}.hit .stack>div{width:40px;height:40px;margin-inline-start:-8px}.hit>svg{width:20px;height:20px;flex:0 0 auto}
-.mic{position:absolute;top:calc(14px + env(safe-area-inset-top));left:14px;z-index:5;width:40px;height:40px;border-radius:50%;background:rgba(255,244,220,.12);border:2px solid rgba(255,244,220,.28);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mic{position:fixed;top:calc(14px + env(safe-area-inset-top));left:14px;z-index:5;width:40px;height:40px;border-radius:50%;background:rgba(255,244,220,.12);border:2px solid rgba(255,244,220,.28);display:flex;align-items:center;justify-content:center;cursor:pointer}
 a.lnk{color:var(--mute);font-size:12.5px;text-align:center;text-decoration:underline;cursor:pointer;padding:8px}
+.menubtn{position:fixed;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:70;height:40px;padding:0 14px;border-radius:20px;background:rgba(255,244,220,.14);border:2px solid rgba(255,244,220,.32);color:var(--cream);font-family:inherit;font-weight:900;font-size:15px;display:flex;align-items:center;cursor:pointer}
+.sheetbg{position:fixed;inset:0;z-index:80;background:rgba(5,8,28,.78);display:flex;align-items:center;justify-content:center;padding:20px}
+.sheet{width:100%;max-width:400px;background:var(--navy);border:3px solid var(--cream);border-radius:24px;padding:20px 18px;display:flex;flex-direction:column;gap:12px}
 </style></head><body>
 <div id="app"><div class="rays"></div><div class="dots"></div><div id="v"></div><div id="mus" class="mic" onclick="toggleMusic()"></div></div>
 <audio id="bgm" src="https://incompetech.com/music/royalty-free/mp3-royaltyfree/Monkeys%20Spinning%20Monkeys.mp3" loop preload="none"></audio>
@@ -97,8 +100,8 @@ function gm(x,m,f){return x&&x.gender==='f'?f:m}
 function numAr(n){return String(n)}
 function post(path,body,cb){fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json()}).then(cb).catch(function(){ui.err='النت قاطع. جرّب تاني.';render()})}
 function poll(){if(!session){return}
- fetch('/api/state?room='+encodeURIComponent(session.room)+'&pid='+encodeURIComponent(session.pid)).then(function(r){return r.json()}).then(function(j){
-  if(!j.ok){ if(j.error==='no_room'||j.error==='unknown_player'){localStorage.removeItem('mq_s');session=null;ui.err=j.msg;S=null;render();return} }
+ fetch('/api/state?room='+encodeURIComponent(session.room)+'&pid='+encodeURIComponent(session.pid)).then(function(r){return r.json()}).then(function(j){if(!session)return;
+  if(!j.ok){ if(j.error==='no_room'||j.error==='unknown_player'||j.error==='closed'){clearSession(ui.leaving?'':j.msg);return} }
   else{var ns=j.state;offset=ns.now-Date.now()/1000;var sig=JSON.stringify(ns,function(k,v){return k==='now'?undefined:v});var ch=sig!==lastSig||!S;lastSig=sig;S=ns;var nb=handleNotes();if(ch||nb)render()}
   setTimeout(poll,1000)}).catch(function(){setTimeout(poll,2000)})}
 function handleNotes(){var mx=seenId,nb=false;(S.notes||[]).forEach(function(n){if(n.id>seenId){nb=true;
@@ -129,7 +132,11 @@ function copyCode(){var c=S&&S.code;if(!c)return;var done=function(ok){var b=$('
  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(c).then(function(){done(true)},fb)}else fb()}catch(e){fb()}}
 function pasteCode(e,el){var t=(e.clipboardData||window.clipboardData).getData('text');var v=normCode(t);if(v){e.preventDefault();el.value=v;ui.form.code=v}}
 function normCode(v){return String(v||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,6)}
-function leaveRoom(){localStorage.removeItem('mq_s');session=null;S=null;ui.err='';ui.screen=null;render()}
+function clearSession(msg){ui.leaving=false;ui.over=null;ui.toasts=[];ui.claim=false;localStorage.removeItem('mq_s');session=null;S=null;lastSig='';ui.menu=false;ui.err=msg||'';ui.screen=null;render()}
+function leaveRoom(){var r=session&&session.room,p=session&&session.pid;if(!r){return clearSession()}ui.leaving=true;post('/api/leave',{room:r,pid:p},function(j){clearSession(j.ok||j.error==='unknown_player'||j.error==='no_room'||j.error==='closed'?'':j.msg)})}
+function closeRoom(){var r=session&&session.room,p=session&&session.pid;post('/api/close',{room:r,pid:p},function(j){if(j.ok){clearSession('الأوضة اتقفلت.')}else{ui.menu=false;ui.err=j.msg;render()}})}
+function menuBtn(){return (session&&S)?'<div class="menubtn" id="menubtn" onclick="ui.menu=true;render()">خروج ✕</div>':''}
+function menuSheet(){if(!ui.menu||!S)return '';var host=S.me.host;return '<div class="sheetbg" id="sheet" onclick="if(event.target.id===\'sheet\'){ui.menu=false;render()}"><div class="sheet"><div class="title" style="font-size:22px;text-align:center">عايز تعمل إيه؟</div><div class="btn ghost" id="leaveopt" onclick="leaveRoom()">اخرج من الأوضة'+'</div>'+(host?'<div class="btn" id="closeopt" onclick="closeRoom()">اقفل الأوضة للكل</div>':'')+'<div class="sub" style="text-align:center;font-size:13px">'+(host?'قفل الأوضة بيخرّج كل اللاعبين ومش بترجع. بعدها تفتح أوضة جديدة.':'خروجك بيشيلك من اللعب ومحدش بيفضل بإسمك.')+'</div><div class="lnk" style="text-align:center" onclick="ui.menu=false;render()">رجوع للعبة</div></div></div>'}
 function goForm(mode){ui.form={mode:mode,name:'',gender:null,avatar:null,code:''};ui.err='';ui.screen='form';render()}
 function formV(){var f=ui.form,join=f.mode==='join';
  var ORD=['fahlawy','baladi','osta','dalouaa','tuktuk','hijabi','captain','kaptna','haag','hagga','foul','dahiha'];var avs=ORD.filter(function(k){return ART.avatars[k]}).concat(Object.keys(ART.avatars).filter(function(k){return ORD.indexOf(k)<0})).map(function(k){return '<div class="av'+(f.avatar===k?' on':'')+'" onclick="ui.form.avatar=\''+k+'\';render()">'+av(k)+'<span>'+esc(ART.avatars[k].name)+'</span></div>'}).join('');
@@ -152,7 +159,7 @@ function lobby(){var me=S.me,ps=S.players.map(function(p){return '<div class="ca
  var can=S.players.length>=S.min_players;
  var lens=S.len_options.map(function(m){return '<div class="'+(ui.len===m||(!ui.len&&m===S.round_len)?'on':'')+'" onclick="ui.len='+m+';render()">'+numAr(m)+' د</div>'}).join('');
  var host=me.host?'<div class="sub" style="margin-top:14px;font-weight:800;color:var(--cream)">وقت الجولة</div><div class="seg" style="margin-top:6px">'+lens+'</div><div class="err">'+esc(ui.err)+'</div><div class="btn'+(can?'':'" disabled="1')+'" style="margin-top:6px" onclick="act(\'/api/start\',{minutes:ui.len||'+S.round_len+'})">ابدأ اللعب</div>'+(can?'':'<div class="sub" style="text-align:center;font-size:13px;margin-top:6px">لازم لاعبين اتنين على الأقل.</div>'):'<div class="sub" style="text-align:center;margin-top:16px">مستنيين المضيف يبدأ…</div>';
- return '<div class="scr"><div class="btn ghost" id="leavebtn" style="align-self:flex-start;width:auto;min-height:40px;padding:0 16px;font-size:15px;margin-bottom:6px" onclick="leaveRoom()">اخرج من الأوضة</div><div class="sub" style="text-align:center;font-weight:700;color:var(--cream)">كود الأوضة</div><div class="codeline" id="codetxt">'+esc(S.code)+'</div><div class="btn ghost" id="copybtn" style="margin-top:10px;min-height:48px;font-size:18px" onclick="copyCode()">انسخ الكود</div><div class="sub" style="margin-top:10px;text-align:center;font-size:14px">ابعتوا الكود للشلة وادخلوا من تليفوناتكم</div>'+
+ return '<div class="scr"><div class="sub" style="text-align:center;font-weight:700;color:var(--cream)">كود الأوضة</div><div class="codeline" id="codetxt">'+esc(S.code)+'</div><div class="btn ghost" id="copybtn" style="margin-top:10px;min-height:48px;font-size:18px" onclick="copyCode()">انسخ الكود</div><div class="sub" style="margin-top:10px;text-align:center;font-size:14px">ابعتوا الكود للشلة وادخلوا من تليفوناتكم</div>'+
  '<div class="title" style="margin-top:18px;font-size:22px">اللي دخلوا ('+numAr(S.players.length)+')</div>'+ps+'<div class="sp" style="min-height:14px"></div>'+host+'<div class="sub" style="font-size:12.5px;text-align:center;margin-top:10px">أول ما نبدأ الأوضة بتتقفل.</div></div>'}
 function roundV(){var r=S.round,me=S.me,left=r.end-(Date.now()/1000+offset);var t=r.target;
  var card;
@@ -189,7 +196,7 @@ function render(){if(!ART)return;var v;
  }else if(session&&!S){v='<div class="scr"><div class="title" style="margin:auto">لحظة…</div></div>'}
  else if(ui.screen==='form')v=formV();else if(ui.screen==='how')v=how();else if(ui.screen==='credits')v=credits();else v=home();
  var keep=document.activeElement&&document.activeElement.id;var pos=keep&&document.activeElement.selectionStart;
- $('v').innerHTML=v+toasts()+overlay();
+ $('v').innerHTML=v+toasts()+overlay()+menuBtn()+menuSheet();
  if(keep&&$(keep)){$(keep).focus();try{$(keep).setSelectionRange(pos,pos)}catch(e){}}
  micIcon()}
 setInterval(function(){var e=$('tm');if(e&&S&&S.round)e.textContent=fmt(S.round.end-(Date.now()/1000+offset))},250);
