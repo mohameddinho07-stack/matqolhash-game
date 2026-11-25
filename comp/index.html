@@ -131,7 +131,7 @@ function copyCode(){var c=S&&S.code;if(!c)return;var done=function(ok){var b=$('
  var fb=function(){try{var t=document.createElement('textarea');t.value=c;t.setAttribute('readonly','');t.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(t);t.focus();t.select();t.setSelectionRange(0,99);var ok=document.execCommand('copy');document.body.removeChild(t);done(ok)}catch(e){done(false)}};
  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(c).then(function(){done(true)},fb)}else fb()}catch(e){fb()}}
 function pasteCode(e,el){var t=(e.clipboardData||window.clipboardData).getData('text');var v=normCode(t);if(v){e.preventDefault();el.value=v;ui.form.code=v}}
-function normCode(v){return String(v||'').toUpperCase().replace(/[^A-Z]/g,'').slice(0,6)}
+function normCode(v){var m={'٠':0,'١':1,'٢':2,'٣':3,'٤':4,'٥':5,'٦':6,'٧':7,'٨':8,'٩':9,'۰':0,'۱':1,'۲':2,'۳':3,'۴':4,'۵':5,'۶':6,'۷':7,'۸':8,'۹':9};return String(v||'').replace(/[٠-٩۰-۹]/g,function(c){return m[c]}).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6)}
 function clearSession(msg){ui.leaving=false;ui.over=null;ui.toasts=[];ui.claim=false;localStorage.removeItem('mq_s');session=null;S=null;lastSig='';ui.menu=false;ui.err=msg||'';ui.screen=null;render()}
 function leaveRoom(){var r=session&&session.room,p=session&&session.pid;if(!r){return clearSession()}ui.leaving=true;post('/api/leave',{room:r,pid:p},function(j){clearSession(j.ok||j.error==='unknown_player'||j.error==='no_room'||j.error==='closed'?'':j.msg)})}
 function closeRoom(){var r=session&&session.room,p=session&&session.pid;post('/api/close',{room:r,pid:p},function(j){if(j.ok){clearSession('الأوضة اتقفلت.')}else{ui.menu=false;ui.err=j.msg;render()}})}
@@ -141,7 +141,7 @@ function goForm(mode){ui.form={mode:mode,name:'',gender:null,avatar:null,code:''
 function formV(){var f=ui.form,join=f.mode==='join';
  var ORD=['fahlawy','baladi','osta','dalouaa','tuktuk','hijabi','captain','kaptna','haag','hagga','foul','dahiha'];var avs=ORD.filter(function(k){return ART.avatars[k]}).concat(Object.keys(ART.avatars).filter(function(k){return ORD.indexOf(k)<0})).map(function(k){return '<div class="av'+(f.avatar===k?' on':'')+'" onclick="ui.form.avatar=\''+k+'\';render()">'+av(k)+'<span>'+esc(ART.avatars[k].name)+'</span></div>'}).join('');
  return '<div class="scr"><div class="row"><div class="pill" onclick="ui.screen=null;render()" style="cursor:pointer">رجوع</div></div>'+
- (join?'<div class="title" style="margin-top:14px">كود الأوضة</div><input class="t" id="fcode" placeholder="ABCDEF" style="direction:ltr;text-align:center;letter-spacing:8px;margin-top:8px;text-transform:uppercase" value="'+esc(f.code)+'" onpaste="pasteCode(event,this)" oninput="var v=normCode(this.value);this.value=v;ui.form.code=v">':'')+
+ (join?'<div class="title" style="margin-top:14px">كود الأوضة</div><input class="t" id="fcode" placeholder="123456" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="12" style="direction:ltr;text-align:center;letter-spacing:8px;margin-top:8px;text-transform:uppercase" value="'+esc(f.code)+'" onpaste="pasteCode(event,this)" oninput="var v=normCode(this.value);this.value=v;ui.form.code=v">':'')+
  '<div class="title" style="margin-top:16px">اسمك إيه؟</div><input class="t" id="fname" maxlength="14" placeholder="اكتب اسمك" style="margin-top:8px" value="'+esc(f.name)+'" oninput="ui.form.name=this.value">'+
  '<div class="seg" style="margin-top:14px"><div class="'+(f.gender==='m'?'on':'')+'" onclick="ui.form.gender=\'m\';render()">واد</div><div class="'+(f.gender==='f'?'on':'')+'" onclick="ui.form.gender=\'f\';render()">بت</div></div>'+
  '<div class="sub" style="font-size:13px;margin-top:4px">عشان اللعبة تكلمك صح.</div>'+
@@ -149,7 +149,7 @@ function formV(){var f=ui.form,join=f.mode==='join';
  '<div class="sp"></div><div style="position:sticky;bottom:0;z-index:6;margin:0 -20px -76px;padding:26px 20px 64px;background:linear-gradient(rgba(11,15,46,0),var(--navy2) 30%)"><div class="err">'+esc(ui.err)+'</div><div class="btn" onclick="submitForm()">'+(join?'ادخل الأوضة':'افتح الأوضة')+'</div></div></div>'}
 function submitForm(){var f=ui.form;if(!f.name.trim()){ui.err='اكتب اسمك الأول.';return render()}if(!f.gender){ui.err='اختار واد ولا بت.';return render()}
  var body={name:f.name,gender:f.gender,avatar:f.avatar||Object.keys(ART.avatars)[Math.floor(Math.random()*12)]};
- if(f.mode==='join'){body.room=normCode(f.code);if(body.room.length!==6){ui.err='الكود ست حروف، اللي وصل '+body.room.length+' بس.';return render()}}
+ if(f.mode==='join'){body.room=normCode(f.code);if(body.room.length!==6){ui.err='الكود ست أرقام، اللي وصل '+body.room.length+' بس.';return render()}}
  startMusic();
  post(f.mode==='join'?'/api/join':'/api/create',body,function(j){if(!j.ok){ui.err=j.msg||'حصلت مشكلة.';return render()}
   session={room:j.room,pid:j.pid};localStorage.setItem('mq_s',JSON.stringify(session));seenId=0;ui.screen=null;ui.err='';poll()})}
