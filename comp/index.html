@@ -154,7 +154,7 @@ function submitForm(){var f=ui.form;if(!f.name.trim()){ui.err='اكتب اسمك
  post(f.mode==='join'?'/api/join':'/api/create',body,function(j){if(!j.ok){ui.err=j.msg||'حصلت مشكلة.';return render()}
   session={room:j.room,pid:j.pid};localStorage.setItem('mq_s',JSON.stringify(session));seenId=0;ui.screen=null;ui.err='';poll()})}
 function act(path,extra){var b={room:session.room,pid:session.pid};for(var k in (extra||{}))b[k]=extra[k];post(path,b,function(j){if(!j.ok){ui.err=j.msg;}else{ui.err=''}ui.claim=false;pollNow()})}
-function pollNow(){fetch('/api/state?room='+session.room+'&pid='+session.pid).then(function(r){return r.json()}).then(function(j){if(j.ok){S=j.state;offset=S.now-Date.now()/1000;handleNotes()}render()})}
+function pollNow(){if(!session)return;fetch('/api/state?room='+session.room+'&pid='+session.pid).then(function(r){return r.json()}).then(function(j){if(j.ok){S=j.state;offset=S.now-Date.now()/1000;handleNotes()}render()})}
 function lobby(){var me=S.me,ps=S.players.map(function(p){return '<div class="card prow"><div>'+av(p.avatar)+'</div><div style="font-weight:900;font-size:19px;flex:1">'+esc(p.name)+'</div>'+(p.host?'<span class="tag">المضيف</span>':'')+(p.pid===me.pid?'<span class="tag me">إنت</span>':'')+'</div>'}).join('');
  var can=S.players.length>=S.min_players;
  var lens=S.len_options.map(function(m){return '<div class="'+(ui.len===m||(!ui.len&&m===S.round_len)?'on':'')+'" onclick="ui.len='+m+';render()">'+numAr(m)+' د</div>'}).join('');
