@@ -15,7 +15,7 @@ ERR = {
     "host_only": "ده للمضيف بس.", "phase": "مش وقت الحركة دي.",
     "min_players": "لازم لاعبين اتنين على الأقل.", "len": "مدة مش مظبوطة.",
     "not_in_round": "الجولة خلصت.", "no_target": "مفيش حد تتصيده دلوقتي.",
-    "unknown_player": "الأوضة دي مش بتاعتك. ادخل تاني بالكود.", "closed": "المضيف قفل الأوضة.", "no_code": "جرّب تاني بعد شوية.", "slow_down": "محاولات كتير غلط. استنى شوية وجرّب تاني.",
+    "unknown_player": "الأوضة دي مش بتاعتك. ادخل تاني بالكود.", "closed": "المضيف قفل الأوضة.", "pools": "اللعبة بتتجهز. جرّب تاني بعد دقيقة.", "no_code": "جرّب تاني بعد شوية.", "slow_down": "محاولات كتير غلط. استنى شوية وجرّب تاني.",
 }
 
 st.set_page_config(page_title="ماتقولهاش", layout="centered", initial_sidebar_state="collapsed")
@@ -26,21 +26,29 @@ iframe{height:100dvh!important;width:100%!important;border:0!important}
 html,body,.stApp{background:#0A0F2E}
 </style>""", unsafe_allow_html=True)
 
+PRIV_ERR = {"e": ""}
 def _load_private():
     try:
         d = json.loads(st.secrets["game_text"])
-    except Exception:
+    except Exception as ex:
+        PRIV_ERR["e"] = type(ex).__name__
         return False
     W.BANK = sorted(set(d["bank"]))
     C.VICTIM_M = [(h, l) for h in d["heads_m"] for l in d["lines_m"]]
     C.VICTIM_F = [(h, l) for h in d["heads_f"] for l in d["lines_f"]]
-    C.BANNER = d["banner"]; C.CONGRATS = d["congrats"]; C.ZERO_HIT = d["zero_hit"]; C.LAST_ROUND = d["last_round"]
+    C.BANNER = d["banner"]; C.CONGRATS = d["congrats"]; C.CONGRATS_F = d.get("congrats_f") or d["congrats"]; C.ZERO_HIT = d["zero_hit"]; C.LAST_ROUND = d["last_round"]
+    C.PRIVATE = True; PRIV_ERR["e"] = ""
     return True
 
 @st.cache_resource
 def shared():
     _load_private()
     return {"hub": Hub(), "lock": threading.Lock()}
+
+def _ensure_private():
+    # Re-apply the private pools whenever they are not active (a cached first load can have failed or been reset).
+    if not getattr(C, "PRIVATE", False):
+        _load_private()
 
 def _migrate(S):
     """Code updates keep live rooms: re-point existing room objects at the current Room class and fill new fields."""
@@ -78,11 +86,15 @@ def handle(req, who="-"):
 def _handle(req, who="-"):
     if not isinstance(req, dict) or not isinstance(req.get("path"), str):
         return {"ok": False, "error": "bad", "msg": "حصلت مشكلة."}
-    S = shared(); _migrate(S); path = req["path"]; b = _clean(req.get("body"))
-    if path not in ("/api/state", "/api/create", "/api/join", "/api/start", "/api/next", "/api/claim", "/api/newleague", "/api/refill", "/api/leave", "/api/close"):
+    S = shared(); _ensure_private(); _migrate(S); path = req["path"]; b = _clean(req.get("body"))
+    if not getattr(C, "PRIVATE", False) and path != "/api/health":
+        return {"ok": False, "error": "pools", "msg": ERR["pools"]}
+    if path not in ("/api/state", "/api/create", "/api/join", "/api/start", "/api/next", "/api/claim", "/api/newleague", "/api/refill", "/api/leave", "/api/close", "/api/health"):
         return {"ok": False, "error": "bad", "msg": "حصلت مشكلة."}
     try:
         with S["lock"]:
+            if path == "/api/health":
+                return {"ok": True, "pools": {"private": bool(getattr(C, "PRIVATE", False)), "bank": len(W.BANK), "victim_m": len(C.VICTIM_M), "victim_f": len(C.VICTIM_F), "err": PRIV_ERR["e"]}}
             if path == "/api/state":
                 return {"ok": True, "state": S["hub"].get(b.get("room"), who).view(b.get("pid"))}
             if path == "/api/create":
@@ -110,8 +122,9 @@ from streamlit.runtime.scriptrunner import get_script_run_ctx
 _ctx = get_script_run_ctx()
 who = _ctx.session_id if _ctx else "-"
 resp = st.session_state.get("resp")
-val = comp(resp=resp, key="mq", default=None)
-if val and val.get("id") != st.session_state.get("last_id"):
+val = st.session_state.get("mq")
+if isinstance(val, dict) and val.get("id") and val.get("id") != st.session_state.get("last_id"):
     st.session_state["last_id"] = val["id"]
-    st.session_state["resp"] = {"id": val["id"], "json": handle(val, who)}
-    st.rerun()
+    resp = {"id": val["id"], "json": handle(val, who)}
+    st.session_state["resp"] = resp
+comp(resp=resp, key="mq", default=None)
