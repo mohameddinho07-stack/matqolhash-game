@@ -52,7 +52,7 @@ svg[viewBox='0 0 100 100']{width:100%;height:100%;display:block}
 .tag.me{background:var(--blue);color:var(--cream)}
 .timer{font-weight:900;font-size:26px;color:var(--yel);direction:ltr;background:rgba(0,0,0,.28);border-radius:14px;padding:2px 14px;border:2px solid rgba(255,199,58,.4)}
 .word{font-weight:900;font-size:60px;line-height:1.25;color:var(--yel);text-align:center;text-shadow:3px 3px 0 var(--navy),-2px -2px 0 var(--navy),2px -2px 0 var(--navy),-2px 2px 0 var(--navy),5px 6px 0 var(--blue)}
-.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top));z-index:50;width:min(400px,92vw);border-radius:20px;padding:14px 18px;font-weight:900;font-size:19px;text-align:center;border:4px solid var(--navy);box-shadow:0 6px 0 rgba(0,0,0,.4);animation:drop .35s ease-out}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(118px + env(safe-area-inset-bottom));pointer-events:none;z-index:50;width:min(400px,92vw);border-radius:20px;padding:14px 18px;font-weight:900;font-size:19px;text-align:center;border:4px solid var(--navy);box-shadow:0 6px 0 rgba(0,0,0,.4);animation:drop .35s ease-out}
 .toast.still{animation:none}
 .toast.banner{background:var(--yel);color:var(--navy)}
 .toast.congrats{background:var(--turq);color:var(--navy)}
