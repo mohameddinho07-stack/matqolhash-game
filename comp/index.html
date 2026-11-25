@@ -99,7 +99,7 @@ function loadSession(){var r=qs('room'),p=qs('pid');if(r&&p){session={room:r.toU
 function av(k,mood){var a=ART.avatars[k];return a?(mood==='w'?a.w:a.n):''}
 function gm(x,m,f){return x&&x.gender==='f'?f:m}
 function numAr(n){return String(n)}
-function post(path,body,cb){fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json()}).then(cb).catch(function(){ui.err='النت قاطع. جرّب تاني.';render()})}
+function post(path,body,cb){fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json()}).then(cb).catch(function(){ui.pend=0;ui.err='النت قاطع. جرّب تاني.';render()})}
 var actAt=0;
 function poll(){if(!session){return}var t0=Date.now();
  fetch('/api/state?room='+encodeURIComponent(session.room)+'&pid='+encodeURIComponent(session.pid)).then(function(r){return r.json()}).then(function(j){if(!session)return;
@@ -156,7 +156,9 @@ function submitForm(){var f=ui.form;if(!f.name.trim()){ui.err='اكتب اسمك
  startMusic();
  post(f.mode==='join'?'/api/join':'/api/create',body,function(j){if(!j.ok){ui.err=j.msg||'حصلت مشكلة.';return render()}
   session={room:j.room,pid:j.pid};localStorage.setItem('mq_s',JSON.stringify(session));seenId=0;ui.screen=null;ui.err='';poll()})}
-function act(path,extra){var b={room:session.room,pid:session.pid};for(var k in (extra||{}))b[k]=extra[k];post(path,b,function(j){if(!j.ok){ui.err=j.msg;}else{ui.err=''}ui.claim=false;if(j.ok&&j.state){S=j.state;offset=S.now-Date.now()/1000;lastSig=JSON.stringify(S,function(k,v){return k==='now'?undefined:v});actAt=Date.now();handleNotes();render()}else{pollNow()}})}
+function claimTap(){if(ui.pend||!S||!S.round||!S.round.target)return;ui.pend=1;if(navigator.vibrate)navigator.vibrate(30);render();act('/api/claim',{tgt:S.round.target.pid})}
+function undoTap(){if(ui.pend)return;ui.pend=1;render();act('/api/undo')}
+function act(path,extra){var b={room:session.room,pid:session.pid};for(var k in (extra||{}))b[k]=extra[k];post(path,b,function(j){if(!j.ok){ui.err=j.msg;}else{ui.err=''}ui.claim=false;ui.pend=0;if(j.error==='stale_target'){ui.err=''}if(j.ok&&j.state){S=j.state;offset=S.now-Date.now()/1000;lastSig=JSON.stringify(S,function(k,v){return k==='now'?undefined:v});actAt=Date.now();handleNotes();render()}else{pollNow();render()}})}
 function pollNow(){if(!session)return;fetch('/api/state?room='+session.room+'&pid='+session.pid).then(function(r){return r.json()}).then(function(j){if(j.ok){S=j.state;offset=S.now-Date.now()/1000;handleNotes()}render()})}
 function lobby(){var me=S.me,ps=S.players.map(function(p){return '<div class="card prow"><div>'+av(p.avatar)+'</div><div style="font-weight:900;font-size:19px;flex:1">'+esc(p.name)+'</div>'+(p.host?'<span class="tag">المضيف</span>':'')+(p.pid===me.pid?'<span class="tag me">إنت</span>':'')+'</div>'}).join('');
  var can=S.players.length>=S.min_players;
@@ -172,7 +174,7 @@ function roundV(){var r=S.round,me=S.me,left=r.end-(Date.now()/1000+offset);var 
  return '<div class="scr"><div class="row" style="justify-content:space-between"><div class="pill">الجولة '+numAr(S.round_no)+' من '+numAr(S.rounds)+'</div><div class="timer" id="tm">'+fmt(left)+'</div></div>'+
  '<div style="margin-top:14px;text-align:center;font-weight:700;font-size:15px;color:var(--mute)">مهمتك السرية. محدش يشوف تليفونك.</div>'+card+caught+
  '<div class="sp" style="min-height:14px"></div><div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="pill">لسه واقفين: '+numAr(r.uncaught)+' من '+numAr(r.total)+'</span><span class="pill">نقطك: '+numAr(r.my.hit+r.my.survive)+'</span></div><div class="err">'+esc(ui.err)+'</div>'+
- '<div class="btn'+(t?'':'" disabled="1')+'" onclick="act(\'/api/claim\')" style="height:72px;font-size:26px">قالها!</div><div class="sub" style="text-align:center;font-size:13px;margin-top:8px">دوسها لما '+(t?esc(t.name):'ضحيتك')+' '+gm(t,'يقولها','تقولها')+' بنفسه.</div></div>'}
+ '<div class="btn'+(t?'':'" disabled="1')+'" onclick="claimTap()" style="height:72px;font-size:26px">'+(ui.pend?'⏳ ثانية...':'قالها!')+'</div><div class="sub" style="text-align:center;font-size:13px;margin-top:8px">دوسها لما '+(t?esc(t.name):'ضحيتك')+' '+gm(t,'يقولها','تقولها')+' بنفسه.</div></div>'}
 function summaryV(final){var sm=S.summary,me=S.me;
  var hits=sm.hits.length?sm.hits.map(function(h){var st=h.steerers.map(function(x){return '<div>'+av(x.avatar)+'</div>'}).join('');
   return '<div class="card hit"><div class="stack">'+st+'</div><svg viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M20 12 H5 M11 5 l-7 7 l7 7" fill="none" stroke="#141A3F" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg><div>'+av(h.victim_avatar,'w')+'</div><div style="flex:1;min-width:0"><div style="font-weight:900;font-size:16px">«'+esc(h.word)+'»</div><div style="font-size:12px;font-weight:700;color:#5A6199">'+esc(h.steerers.map(function(x){return x.name}).join(' + '))+' ← '+esc(h.victim)+'</div></div><div style="font-weight:900;color:#2E7D32;direction:ltr">+1</div></div>'}).join(''):
@@ -191,6 +193,7 @@ function overlay(){var n=ui.over;if(!n)return '';var me=S&&S.me;
  return '<div class="over"><div><div class="rays"></div><div style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:100%"><div style="width:104px;height:104px;transform:rotate(-5deg)">'+av(me.avatar,'w')+'</div><div class="hl" style="font-size:'+(n.head.length>16?32:42)+'px">'+esc(n.head)+'</div><div class="card" style="margin-top:16px;padding:16px 20px;text-align:center;width:100%">'+lineParts(n)+'</div><div style="margin-top:14px;font-size:16px;line-height:1.7;text-align:center;font-weight:600">حد استدرجك للكلمة دي.<br><span style="color:var(--yel);font-weight:800">هتعرف مين في الكشف… '+gm(me,'لو لسه فاكر.','لو لسه فاكرة.')+'</span></div><div class="btn stick" style="margin-top:16px" onclick="ui.over=null;render()">'+gm(me,'كمّل كلام','كمّلي كلام')+'</div></div></div></div>'}
 function claimModal(){if(!ui.claim||!S||!S.round||!S.round.target)return '';var t=S.round.target;
  return '<div class="modal"><div><div style="font-weight:900;font-size:22px;text-align:center">متأكد إن '+esc(t.name)+' قالها؟</div><div class="sub" style="text-align:center;font-size:13px">اللعبة مش بتسمع. الضغطة دي بتوقّعه فورًا.</div><div class="btn coral" onclick="act(\'/api/claim\')">أيوه، قالها!</div><div class="btn ghost" onclick="ui.claim=false;render()">لأ، لسه</div></div></div>'}
+function undoBar(){var u=S&&S.undo;if(!u||u.left<=0)return '';return '<div style="position:fixed;left:0;right:0;top:114px;z-index:60;display:flex;justify-content:center;padding:0 16px"><div class="btn coral" onclick="undoTap()" style="height:52px;font-size:19px;max-width:420px">'+(ui.pend?'⏳ ثانية...':'↩ غلطة؟ ارجع فيها')+'</div></div>'}
 function toasts(){return ui.toasts.map(function(n){var c=n.shown?' still':'';n.shown=true;return '<div class="toast '+n.kind+c+'">'+esc(n.text)+'</div>'}).join('')}
 function render(){if(!ART)return;var v;
  if(session&&S){
@@ -199,7 +202,8 @@ function render(){if(!ART)return;var v;
  }else if(session&&!S){v='<div class="scr"><div class="title" style="margin:auto">لحظة…</div></div>'}
  else if(ui.screen==='form')v=formV();else if(ui.screen==='how')v=how();else if(ui.screen==='credits')v=credits();else v=home();
  var keep=document.activeElement&&document.activeElement.id;var pos=keep&&document.activeElement.selectionStart;
- $('v').innerHTML=v+toasts()+overlay()+menuBtn()+menuSheet();
+ if(ui.over&&ui.over.kind==='caught'&&S&&S.phase==='round'&&S.round&&!S.round.caught){ui.over=null}
+ $('v').innerHTML=v+undoBar()+toasts()+overlay()+menuBtn()+menuSheet();
  if(keep&&$(keep)){$(keep).focus();try{$(keep).setSelectionRange(pos,pos)}catch(e){}}
  micIcon()}
 setInterval(function(){var e=$('tm');if(e&&S&&S.round)e.textContent=fmt(S.round.end-(Date.now()/1000+offset))},250);
