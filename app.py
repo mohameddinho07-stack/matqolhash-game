@@ -5,6 +5,12 @@ import streamlit.components.v1 as components
 import json
 import words as W
 import copy_text as C
+import importlib, engine as _eng
+_mt = os.path.getmtime(_eng.__file__)
+if getattr(_eng, "_MT", None) != _mt:
+    # the host may keep an old engine module in memory after a code update; reload it, live rooms are re-pointed by _migrate
+    importlib.reload(_eng)
+    _eng._MT = _mt
 from engine import Hub, GameError
 
 ERR = {
