@@ -20,7 +20,7 @@ ERR = {
     "dup_name": "في حد بنفس الاسم ده. غيّره حبة.", "full": "الأوضة اتملت.",
     "host_only": "ده للمضيف بس.", "phase": "مش وقت الحركة دي.",
     "min_players": "لازم لاعبين اتنين على الأقل.", "len": "مدة مش مظبوطة.",
-    "not_in_round": "الجولة خلصت.", "no_target": "مفيش حد تتصيده دلوقتي.",
+    "not_in_round": "الجولة خلصت.", "no_target": "مفيش حد تتصيده دلوقتي.", "stale_target": "", "no_undo": "مفيش حاجة تتلغي دلوقتي.",
     "unknown_player": "الأوضة دي مش بتاعتك. ادخل تاني بالكود.", "closed": "المضيف قفل الأوضة.", "pools": "اللعبة بتتجهز. جرّب تاني بعد دقيقة.", "no_code": "جرّب تاني بعد شوية.", "slow_down": "محاولات كتير غلط. استنى شوية وجرّب تاني.",
 }
 
@@ -74,7 +74,7 @@ def _clean(b):
     out = {}
     if not isinstance(b, dict):
         return out
-    for k in ("room", "pid", "name", "gender", "avatar"):
+    for k in ("room", "pid", "name", "gender", "avatar", "tgt"):
         v = b.get(k)
         out[k] = v[:40] if isinstance(v, str) else None
     m = b.get("minutes")
@@ -95,7 +95,7 @@ def _handle(req, who="-"):
     S = shared(); _ensure_private(); _migrate(S); path = req["path"]; b = _clean(req.get("body"))
     if not getattr(C, "PRIVATE", False) and path != "/api/health":
         return {"ok": False, "error": "pools", "msg": ERR["pools"]}
-    if path not in ("/api/state", "/api/create", "/api/join", "/api/start", "/api/next", "/api/claim", "/api/newleague", "/api/refill", "/api/leave", "/api/close", "/api/health"):
+    if path not in ("/api/state", "/api/create", "/api/join", "/api/start", "/api/next", "/api/claim", "/api/newleague", "/api/refill", "/api/leave", "/api/close", "/api/undo", "/api/health"):
         return {"ok": False, "error": "bad", "msg": "حصلت مشكلة."}
     try:
         with S["lock"]:
@@ -110,19 +110,21 @@ def _handle(req, who="-"):
                 return {"ok": True, "room": r.code, "pid": pid}
             r = S["hub"].get(b.get("room"), who)
             if path == "/api/join":
-                pid = r.add_player(b.get("name"), b.get("gender"), b.get("avatar")); return {"ok": True, "room": r.code, "pid": pid}
+                pid = r.add_player(b.get("name"), b.get("gender"), b.get("avatar")); r._undo = None; return {"ok": True, "room": r.code, "pid": pid}
             pid = b.get("pid")
             if pid not in r.players: raise GameError("unknown_player")
             if path == "/api/leave":
-                left = r.leave(pid)
+                left = r.leave(pid); r._undo = None
                 if not left:
                     S["hub"].rooms.pop(r.code, None)
                 return {"ok": True}
             {"/api/start": lambda: r.start_league(pid, b.get("minutes")), "/api/next": lambda: r.next_round(pid),
-             "/api/claim": lambda: r.claim(pid), "/api/newleague": lambda: r.new_league(pid),
+             "/api/claim": lambda: r.claim(pid, expect=b.get("tgt")), "/api/undo": lambda: r.undo(pid), "/api/newleague": lambda: r.new_league(pid),
              "/api/refill": lambda: r.refill_bank(pid), "/api/close": lambda: r.close(pid)}[path]()
+            if path not in ("/api/claim", "/api/undo"):
+                r._undo = None
             out = {"ok": True}
-            if path in ("/api/start", "/api/next", "/api/claim", "/api/newleague", "/api/refill"):
+            if path in ("/api/start", "/api/next", "/api/claim", "/api/undo", "/api/newleague", "/api/refill"):
                 try: out["state"] = r.view(pid)
                 except Exception: pass
             return out
