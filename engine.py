@@ -22,6 +22,8 @@ def norm_code(code):
     return "".join(ch for ch in c if ch.isascii() and ch.isalnum())
 
 
+UNDO_SECS = 12
+
 class GameError(Exception):
     pass
 
@@ -50,6 +52,7 @@ class Room:
         self.refilled = 0
         self.gone = {}              # pid -> player dict, for players who left (history stays readable)
         self.closed = False
+        self._undo = None
 
     # ---------------- players
     def add_player(self, name, gender, avatar):
@@ -170,20 +173,36 @@ class Room:
             "caught": {}, "targets": {}, "hits": [], "first_hit_sent": False,
             "survivors": None, "ended": False,
         }
-        for pid in self.order:
-            self.round["targets"][pid] = self._pick_target(pid)
+        self.round["targets"] = self._initial_targets()
         self.phase = "round"
         self.touched = now
 
     def _uncaught(self):
         return [p for p in self.order if p not in self.round["caught"]]
 
+    def _initial_targets(self):
+        # every player gets a DIFFERENT victim: a random permutation with nobody pointing at themselves
+        ids = list(self.order)
+        n = len(ids)
+        if n < 2:
+            return {p: None for p in ids}
+        while True:
+            vs = ids[:]
+            random.shuffle(vs)
+            if all(a != b for a, b in zip(ids, vs)):
+                return dict(zip(ids, vs))
+
     def _pick_target(self, pid, avoid=None):
+        # new mission AFTER a success: help someone who is still after an uncaught player, if there is one
         pool = [p for p in self._uncaught() if p != pid]
         if avoid:
             alt = [p for p in pool if p != avoid]
             pool = alt or pool
-        return random.choice(pool) if pool else None
+        if not pool:
+            return None
+        held = {t for s, t in self.round["targets"].items() if s != pid and t in pool}
+        pref = [p for p in pool if p in held]
+        return random.choice(pref or pool)
 
     # ---------------- gameplay
     def tick(self, now=None):
@@ -192,7 +211,7 @@ class Room:
             if now >= self.round["end"] or not self._uncaught():
                 self._end_round(now)
 
-    def claim(self, pid, now=None):
+    def claim(self, pid, now=None, expect=None):
         now = now or time.time()
         self.tick(now)
         if self.phase != "round":
@@ -201,6 +220,10 @@ class Room:
         v = r["targets"].get(pid)
         if v is None or v in r["caught"]:
             raise GameError("no_target")
+        if expect is not None and expect != self._pub(v):
+            raise GameError("stale_target")
+        import copy
+        snap = copy.deepcopy({k: getattr(self, k) for k in ("round", "scores", "history", "last_summary", "phase", "notes", "touched")})
         steerers = [s for s in self.order if r["targets"].get(s) == v]
         r["caught"][v] = now - r["start"]
         for s in steerers:
@@ -227,7 +250,24 @@ class Room:
                 r["targets"][s] = self._pick_target(s, avoid=t)
         self.touched = now
         self.tick(now)
+        self._undo = {"pid": pid, "until": now + UNDO_SECS, "snap": snap, "victim": v, "steerers": list(steerers)}
         return v
+
+    def undo(self, pid, now=None):
+        now = now or time.time()
+        u = self._undo
+        if not u or u["pid"] != pid or now > u["until"]:
+            raise GameError("no_undo")
+        if self.phase not in ("round", "between", "league_over"):
+            raise GameError("no_undo")
+        for k, val in u["snap"].items():
+            setattr(self, k, val)
+        self._undo = None
+        for p in set(u["steerers"]) | {u["victim"]}:
+            if p in self.players:
+                self._note(p, "info", text="الدوسة اتلغت. اللعب كمّل عادي.")
+        self.touched = now
+        self.tick(now)
 
     def _end_round(self, now):
         r = self.round
@@ -294,6 +334,9 @@ class Room:
             "standings": self.standings(),
             "words_left": len(self.bank), "refilled": self.refilled,
         }
+        u = self._undo
+        if u and u["pid"] == pid and now <= u["until"] and self.phase in ("round", "between", "league_over"):
+            v["undo"] = {"left": round(u["until"] - now, 1)}
         r = self.round
         if self.phase == "round" and r:
             t = r["targets"].get(pid)
